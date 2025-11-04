@@ -1,6 +1,9 @@
+from typing import Optional
+
 from jinja2 import Environment, BaseLoader, StrictUndefined
 
 from getpycode.types import Package, Module
+from getpycode.comment import AbstractComment
 
 
 class CodeGenerator:
@@ -8,7 +11,8 @@ class CodeGenerator:
         self,
         loader: BaseLoader,
         *,
-        overwrite: bool = True
+        overwrite: bool = True,
+        comment: Optional[AbstractComment] = None
     ):
         self.environment = Environment(
             trim_blocks=True,
@@ -20,6 +24,7 @@ class CodeGenerator:
             extensions=["jinja2.ext.do"]
         )
         self._overwrite = overwrite
+        self._comment = comment
 
     def create_module(self, module: Module) -> None:
         if module.path.exists() and not self._overwrite:
@@ -30,6 +35,22 @@ class CodeGenerator:
             code = template.render(**module.fields)
         else:
             code = ""
+
+        if self._comment is not None:
+            comment = []
+
+            for i in self._comment.get(module):
+                if not i.startswith("#"):
+                    i = f"# {i}"
+
+                comment.append(i)
+
+            comment = "\n".join(comment)
+
+            if code:
+                code = f"{comment}\n\n{code}"
+            else:
+                code = f"{comment}\n"
 
         with module.path.open("w", encoding="utf-8") as file:
             file.write(code)
